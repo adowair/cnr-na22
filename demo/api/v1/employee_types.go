@@ -43,7 +43,7 @@ type EmployeeStatus struct{}
 
 //+kubebuilder:object:root=true
 //+kubebuilder:printcolumn:name="Employee Name",type=string,JSONPath=`.spec.name`
-//+kubebuilder:printcolumn:name="Employee ID",type=int,JSONPath=`.spec.employeeID`
+//+kubebuilder:printcolumn:name="Employee ID",type=integer,JSONPath=`.spec.employeeID`
 //+kubebuilder:printcolumn:name="Team",type=string,JSONPath=`.spec.teamName`
 
 // Employee is the Schema for the employees API
