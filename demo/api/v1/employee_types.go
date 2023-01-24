@@ -25,21 +25,26 @@ import (
 
 // EmployeeSpec defines the desired state of Employee
 type EmployeeSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of Employee. Edit employee_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// +kubebuilder:validation:Required
+	// The employee's name. Required.
+	Name string `json:"name,omitempty"`
+	// +kubebuilder:validation:Required
+	// The employee's ID. This must be unique. Required.
+	ID int `json:"employeeID,omitempty"`
+	// +kubebuilder:validation:Required
+	// The team the employee belongs to. Required.
+	TeamName string `json:"teamName,omitempty"`
+	// The employee's role.
+	Role string `json:"role,omitempty"`
 }
 
 // EmployeeStatus defines the observed state of Employee
-type EmployeeStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-}
+type EmployeeStatus struct{}
 
 //+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="Employee Name",type=string,JSONPath=`.spec.name`
+//+kubebuilder:printcolumn:name="Employee ID",type=int,JSONPath=`.spec.employeeID`
+//+kubebuilder:printcolumn:name="Team",type=string,JSONPath=`.spec.teamName`
 
 // Employee is the Schema for the employees API
 type Employee struct {

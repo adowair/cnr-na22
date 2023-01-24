@@ -53,3 +53,10 @@ recreate this project from scratch by following this document.
    ([api/v1/employee_types.go](api/v1/employee_types.go)) and controller
    ([controllers/employee_controller.go](controllers/employee_controller.go))
    templates for you to customize.
+6. In [api/v1/employee_types.go](api/v1/employee_types.go), specify the fields
+   for the Employee object's spec and status. A yaml file describing the CRD
+   can be generated from this Go struct representation by running
+   `make manifests`
+   ```console
+   demo/$ make manifests
+   ```
