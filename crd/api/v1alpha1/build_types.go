@@ -23,19 +23,29 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+type Target struct {
+	Source     string `json:"source_url,omitempty"`
+	Commit     string `json:"commit_id,omitempty"`
+	Dockerfile string `json:"dockerfile,omitempty"`
+}
+
+type Destination struct {
+	Host  string `json:"address"`
+	Image string `json:"image"`
+	Tag   string `json:"tag"`
+}
+
 // BuildSpec defines the desired state of Build
 type BuildSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of Build. Edit build_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	Target      `json:"target,omitempty"`
+	Destination `json:"destination,omitempty"`
 }
 
 // BuildStatus defines the observed state of Build
 type BuildStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	Success bool   `json:"success,omitempty"`
+	Image   string `json:"image,omitempty"`
+	Tag     string `json:"tag,omitempty"`
 }
 
 //+kubebuilder:object:root=true

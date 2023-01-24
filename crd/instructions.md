@@ -24,3 +24,33 @@ already has the image, and if not, building and pushing it.
    Create Controller [y/n]
    > y
    ```
+4. Add wanted fields to `Build`'s status and spec in
+   [build_types.go](api/v1alpha1/build_types.go). After modifying this file,
+   remember to run `make` to regenerate controller code. These status and spec
+   structs will initially look like this:
+   ```go
+   // BuildSpec defines the desired state of Build
+   type BuildSpec struct {
+     // Foo is an example field of Build. Edit build_types.go to remove/update
+     Foo string `json:"foo,omitempty"`
+   }
+
+   // BuildStatus defines the observed state of Build
+   type BuildStatus struct {
+     // INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+   	 // Important: Run "make" to regenerate code after modifying this file
+   }
+   ```
+5. Add reconcile loop logic to [build_controller.go](controllers/build_controller.go).
+   The function `BuildReconciler.Reconcile()` will run whenever Kubernetes client
+   makes a request against this API.
+   ```go
+   func (r *BuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	 _ = log.FromContext(ctx)
+
+	 // TODO(user): your logic here
+
+	 return ctrl.Result{}, nil
+   }
+   ```
+   

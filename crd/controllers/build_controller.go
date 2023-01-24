@@ -18,6 +18,10 @@ package controllers
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -25,6 +29,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	cicdv1alpha1 "adowair.github.io/cicd/api/v1alpha1"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/filters"
+	docker "github.com/docker/docker/client"
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 )
 
 // BuildReconciler reconciles a Build object
@@ -47,9 +56,69 @@ type BuildReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *BuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	log := log.FromContext(ctx)
 
-	// TODO(user): your logic here
+	// Get the Build object
+	var build cicdv1alpha1.Build
+	if err := r.Get(ctx, req.NamespacedName, &build); err != nil {
+		log.Error(err, "unable to fetch Build")
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	// Create a docker client to the specified host
+	client, err := docker.NewClientWithOpts(docker.WithHost(build.Spec.Host))
+	if err != nil {
+		log.Error(err, "unable to create docker client")
+		return ctrl.Result{}, err
+	}
+
+	// Check that the registry doesn't already have this build
+	filter := filters.NewArgs(filters.Arg("reference", fmt.Sprintf("%s:%s", build.Spec.Image, build.Spec.Tag)))
+	images, err := client.ImageList(ctx, types.ImageListOptions{Filters: filter})
+	if err != nil {
+		log.Error(err, "unable to list images in registry")
+		return ctrl.Result{}, err
+	}
+
+	if len(images) > 0 {
+		log.Info("an image with the specified name an tag already exists", "images", images)
+		return ctrl.Result{}, errors.New("an image with the specified tag already exists")
+	}
+
+	repoDir, err := os.MkdirTemp("", "git-repo-")
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	defer os.RemoveAll(repoDir)
+
+	repo, err := git.PlainClone(repoDir, true, &git.CloneOptions{
+		URL: build.Spec.Host,
+	})
+	if err != nil {
+		log.Error(err, "unable to clone repository")
+		return ctrl.Result{}, errors.New("unable to clone repository")
+	}
+
+	w, err := repo.Worktree()
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	w.Checkout(&git.CheckoutOptions{
+		Hash: plumbing.NewHash(build.Spec.Commit),
+	})
+
+	dockerfilePath := filepath.Join(repoDir, build.Spec.Dockerfile)
+
+	_, err = client.ImageBuild(ctx, nil, types.ImageBuildOptions{
+		Dockerfile: dockerfilePath,
+		Tags:       []string{build.Spec.Tag},
+	})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// TODO: push image to registry
 
 	return ctrl.Result{}, nil
 }
