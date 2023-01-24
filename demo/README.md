@@ -70,3 +70,10 @@ recreate this project from scratch by following this document.
    }
 
    ```
+   To build the manager image, run `make build`. To deploy the manager
+   in a local session, run `make run`. Otherwise, you can also build, push,
+   and deploy the manager directly on the cluster by doing:
+   ```console
+   demo/$ make docker-buildx
+   demo$/ make deploy
+   ```
