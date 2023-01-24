@@ -1,0 +1,6 @@
+domain: my.domain
+layout:
+- go.kubebuilder.io/v3
+projectName: demo
+repo: github.com/adowair/cnr-na22
+version: "3"
