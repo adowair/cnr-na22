@@ -60,6 +60,7 @@ recreate this project from scratch by following this document.
    ```console
    demo/$ make manifests
    ```
+   Once you are ready to install the CRDs, run `make install`.
 7. In ([controllers/employee_controller.go](controllers/employee_controller.go)),
    add your reconcile loop logic in `EmployeeReconciler.Reconcile()`
    ```go
