@@ -33,9 +33,9 @@ type BuildReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=cicd.my.domain,resources=builds,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=cicd.my.domain,resources=builds/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=cicd.my.domain,resources=builds/finalizers,verbs=update
+//+kubebuilder:rbac:groups=cicd.adowair.github.io,resources=builds,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=cicd.adowair.github.io,resources=builds/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=cicd.adowair.github.io,resources=builds/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.

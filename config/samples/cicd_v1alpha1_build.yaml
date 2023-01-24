@@ -1,4 +1,4 @@
-apiVersion: cicd.my.domain/v1alpha1
+apiVersion: cicd.adowair.github.io/v1alpha1
 kind: Build
 metadata:
   labels:

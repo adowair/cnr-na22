@@ -1,4 +1,4 @@
-domain: my.domain
+domain: adowair.github.io
 layout:
 - go.kubebuilder.io/v3
 projectName: cnr-na22
@@ -8,7 +8,7 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: my.domain
+  domain: adowair.github.io
   group: cicd
   kind: Build
   path: adowair.github.io/cicd/api/v1alpha1

@@ -12,7 +12,7 @@ metadata:
   name: build-editor-role
 rules:
 - apiGroups:
-  - cicd.my.domain
+  - cicd.adowair.github.io
   resources:
   - builds
   verbs:
@@ -24,7 +24,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - cicd.my.domain
+  - cicd.adowair.github.io
   resources:
   - builds/status
   verbs:
