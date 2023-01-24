@@ -1,0 +1,12 @@
+apiVersion: cnr-na22.my.domain/v1
+kind: Employee
+metadata:
+  labels:
+    app.kubernetes.io/name: employee
+    app.kubernetes.io/instance: employee-sample
+    app.kubernetes.io/part-of: demo
+    app.kuberentes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: demo
+  name: employee-sample
+spec:
+  # TODO(user): Add fields here

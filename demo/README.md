@@ -39,3 +39,17 @@ recreate this project from scratch by following this document.
    Next: define a resource with:
      $ kubebuilder create api
    ```
+5. Create a new API kind `Employee`, specifying its group and version.
+   You will be prompted to create the resource and its controller-agree
+   to both
+   ```console
+   demo/$ kubebuilder create api --group cnr-na22 --version v1 --kind Employee
+   Create Resource [y/n]
+   y
+   Create Controller [y/n]
+   y
+   ```
+   This step will create both CRD
+   ([api/v1/employee_types.go](api/v1/employee_types.go)) and controller
+   ([controllers/employee_controller.go](controllers/employee_controller.go))
+   templates for you to customize.
