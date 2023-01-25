@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	cnrna22v1 "github.com/adowair/cnr-na22/api/v1"
@@ -37,6 +38,8 @@ type EmployeeReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
+
+const employeeFinalizerName = "github.com.adowair.cnr-na22/finalizer"
 
 //+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=cnr-na22.my.domain,resources=employees,verbs=get;list;watch;create;update;patch;delete
@@ -55,64 +58,114 @@ type EmployeeReconciler struct {
 func (r *EmployeeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 
+	// Get the employee object on which a request was made.
 	var employee cnrna22v1.Employee
 	if err := r.Get(ctx, req.NamespacedName, &employee); err != nil {
-		log.Error(err, "unable to get employee from request")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	rosterCMName := fmt.Sprintf("team-roster-%s", strings.ReplaceAll(employee.Spec.TeamName, " ", "-"))
-	rosterCMName = strings.ToLower(rosterCMName)
-
-	employeeKey := fmt.Sprint(employee.Spec.ID)
-	var rosterCM v1.ConfigMap
-	rosterCMKey := client.ObjectKey{
-		Namespace: req.Namespace,
-		Name:      rosterCMName,
-	}
-	err := r.Get(ctx, rosterCMKey, &rosterCM)
-
+	// If employee object is being created or updated, the deleted timestamp
+	// should not be set.
 	if employee.ObjectMeta.DeletionTimestamp.IsZero() {
-		// Then the object is being created
-		switch {
-		case apierrors.IsNotFound(err):
-			// Then roster does not yet exist. Create it.
-			rosterCM = v1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      rosterCMKey.Name,
-					Namespace: rosterCMKey.Namespace,
-				},
-				Data: map[string]string{
-					employeeKey: employee.Name,
-				},
-			}
-			return ctrl.Result{}, r.Create(ctx, &rosterCM)
-		case err == nil:
-			// Then roster exists. Update it.
-			rosterCM.Data[employeeKey] = employee.Name
-			return ctrl.Result{}, r.Update(ctx, &rosterCM)
-		}
-	} else {
-		// Then the object is being deleted
-		switch {
-		case apierrors.IsNotFound(err):
-			// Then the roster is already deleted. Done reconciling.
-			return ctrl.Result{}, nil
-		case err == nil:
-			// The roster exists.
-			delete(rosterCM.Data, employeeKey)
-			if len(rosterCM.Data) == 0 {
-				// The roster is now empty. Delete it.
-				err = r.Delete(ctx, &rosterCM)
-			} else {
-				err = r.Update(ctx, &rosterCM)
-			}
+		if err := r.addEmployeeToRoster(ctx, &employee); err != nil {
+			log.Error(err, "error adding employee to roster")
 			return ctrl.Result{}, err
 		}
+		if err := r.maybeAddFinalizer(ctx, &employee); err != nil {
+			log.Error(err, "error adding finalizer")
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
 	}
 
-	log.Error(err, "error getting roster object")
-	return ctrl.Result{}, err
+	// Otherwise the object is being deleted.
+	if err := r.removeEmployeeFromRoster(ctx, &employee); err != nil {
+		log.Error(err, "error removing employee from roster")
+		return ctrl.Result{}, err
+	}
+	if err := r.maybeRemoveFinalizer(ctx, &employee); err != nil {
+		log.Error(err, "error removing finalizer")
+		return ctrl.Result{}, err
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *EmployeeReconciler) maybeAddFinalizer(ctx context.Context, e *cnrna22v1.Employee) error {
+	if !controllerutil.ContainsFinalizer(e, employeeFinalizerName) {
+		controllerutil.AddFinalizer(e, employeeFinalizerName)
+		return r.Update(ctx, e)
+	}
+	return nil
+}
+
+func (r *EmployeeReconciler) maybeRemoveFinalizer(ctx context.Context, e *cnrna22v1.Employee) error {
+	if controllerutil.ContainsFinalizer(e, employeeFinalizerName) {
+		controllerutil.RemoveFinalizer(e, employeeFinalizerName)
+		return r.Update(ctx, e)
+	}
+	return nil
+}
+
+func rosterName(e *cnrna22v1.Employee) string {
+	rosterCMName := fmt.Sprintf("team-roster-%s", strings.ReplaceAll(e.Spec.TeamName, " ", "-"))
+	return strings.ToLower(rosterCMName)
+}
+
+func rosterKey(e *cnrna22v1.Employee) string {
+	return e.Name
+}
+
+func (r *EmployeeReconciler) getRoster(ctx context.Context, e *cnrna22v1.Employee, cm *v1.ConfigMap) error {
+	rosterCMKey := client.ObjectKey{
+		Namespace: e.Namespace,
+		Name:      rosterName(e),
+	}
+	return r.Get(ctx, rosterCMKey, cm)
+}
+
+func (r *EmployeeReconciler) addEmployeeToRoster(ctx context.Context, e *cnrna22v1.Employee) error {
+	var rosterCM v1.ConfigMap
+	err := r.getRoster(ctx, e, &rosterCM)
+
+	switch {
+	// Roster exists, just update it.
+	case err == nil:
+		rosterCM.Data[rosterKey(e)] = e.Spec.Name
+		return r.Update(ctx, &rosterCM)
+	// Roster does not exist. Add metadata and create it.
+	case apierrors.IsNotFound(err):
+		rosterCM.ObjectMeta = metav1.ObjectMeta{
+			Namespace: e.Namespace,
+			Name:      rosterName(e),
+		}
+		rosterCM.Data = make(map[string]string)
+		rosterCM.Data[rosterKey(e)] = e.Spec.Name
+		return r.Create(ctx, &rosterCM)
+	// Some unexpected error.
+	default:
+		return err
+	}
+}
+
+func (r *EmployeeReconciler) removeEmployeeFromRoster(ctx context.Context, e *cnrna22v1.Employee) error {
+	var rosterCM v1.ConfigMap
+	err := r.getRoster(ctx, e, &rosterCM)
+
+	delete(rosterCM.Data, rosterKey(e))
+	switch {
+	// Roster exists. Update the roster, or delete it if empty.
+	case err == nil:
+		if len(rosterCM.Data) == 0 {
+			return r.Delete(ctx, &rosterCM)
+		}
+		return r.Update(ctx, &rosterCM)
+	// Roster already deleted. Stop.
+	case apierrors.IsNotFound(err):
+		return nil
+	// Some unexpected error.
+	default:
+		return err
+	}
 }
 
 // SetupWithManager sets up the controller with the Manager.
