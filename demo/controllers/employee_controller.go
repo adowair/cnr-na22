@@ -58,19 +58,20 @@ const employeeFinalizerName = "github.com.adowair.cnr-na22/finalizer"
 func (r *EmployeeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 
-	// Get the employee object on which a request was made.
+	// Get the employee object on which the request was made.
 	var employee cnrna22v1.Employee
 	if err := r.Get(ctx, req.NamespacedName, &employee); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	// If employee object is being created or updated, the deleted timestamp
-	// should not be set.
+	// If the delete timestamp is not set, the object was created or updated.
 	if employee.ObjectMeta.DeletionTimestamp.IsZero() {
+		// Add the employee to their team's roster. Reconcile state.
 		if err := r.addEmployeeToRoster(ctx, &employee); err != nil {
 			log.Error(err, "error adding employee to roster")
 			return ctrl.Result{}, err
 		}
+		// Add a finalizer to control the employee object's deletion
 		if err := r.maybeAddFinalizer(ctx, &employee); err != nil {
 			log.Error(err, "error adding finalizer")
 			return ctrl.Result{}, err
@@ -78,18 +79,22 @@ func (r *EmployeeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
-	// Otherwise the object is being deleted.
+	// Otherwise the object was deleted. Reconcile state.
 	if err := r.removeEmployeeFromRoster(ctx, &employee); err != nil {
 		log.Error(err, "error removing employee from roster")
 		return ctrl.Result{}, err
 	}
-	if err := r.maybeRemoveFinalizer(ctx, &employee); err != nil {
+	// Remove the finalizer to allow deletion to proceed.
+	if err := r.removeFinalizer(ctx, &employee); err != nil {
 		log.Error(err, "error removing finalizer")
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
 }
 
+// maybeAddFinalizer adds a finalizer to the object if one does not already
+// exist. If the object was only updated in this request, it should already
+// have a finalizer. Learn more here https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers/
 func (r *EmployeeReconciler) maybeAddFinalizer(ctx context.Context, e *cnrna22v1.Employee) error {
 	if !controllerutil.ContainsFinalizer(e, employeeFinalizerName) {
 		controllerutil.AddFinalizer(e, employeeFinalizerName)
@@ -98,23 +103,34 @@ func (r *EmployeeReconciler) maybeAddFinalizer(ctx context.Context, e *cnrna22v1
 	return nil
 }
 
-func (r *EmployeeReconciler) maybeRemoveFinalizer(ctx context.Context, e *cnrna22v1.Employee) error {
-	if controllerutil.ContainsFinalizer(e, employeeFinalizerName) {
-		controllerutil.RemoveFinalizer(e, employeeFinalizerName)
+// maybeRemoveFinalizer removes the finalizer from the employee object. If
+// the finalizer is not found, then the object is being deleted already.
+func (r *EmployeeReconciler) removeFinalizer(ctx context.Context, e *cnrna22v1.Employee) error {
+	change := controllerutil.RemoveFinalizer(e, employeeFinalizerName)
+	if change {
 		return r.Update(ctx, e)
 	}
 	return nil
 }
 
+// rosterName returns, for a given employee, the name of the roster they should
+// should belong to. This is derived from the employee's team name.
 func rosterName(e *cnrna22v1.Employee) string {
-	rosterCMName := fmt.Sprintf("team-roster-%s", strings.ReplaceAll(e.Spec.TeamName, " ", "-"))
+	// Make team name a valid Kubernetes name
+	rosterCMName := fmt.Sprintf("%s-team-roster", strings.ReplaceAll(e.Spec.TeamName, " ", "-"))
 	return strings.ToLower(rosterCMName)
 }
 
+// rosterKey returns, for an employee, the key with which they should be added
+// to the roster (a configMap)'s Data.
 func rosterKey(e *cnrna22v1.Employee) string {
+	// Use the object's Kubernetes name. This is guaranteed to be unique
+	// in one namespace.
 	return e.Name
 }
 
+// getRoster gets the roster object to which this employee would belong and
+// copies it into cm if it exists.
 func (r *EmployeeReconciler) getRoster(ctx context.Context, e *cnrna22v1.Employee, cm *v1.ConfigMap) error {
 	rosterCMKey := client.ObjectKey{
 		Namespace: e.Namespace,
@@ -123,6 +139,9 @@ func (r *EmployeeReconciler) getRoster(ctx context.Context, e *cnrna22v1.Employe
 	return r.Get(ctx, rosterCMKey, cm)
 }
 
+// addEmployeeToRoster manages the lifecycle of the roster object to which an
+// employee belongs. This function will add the employee to their team's roster.
+// If a roster does not exist for the employee's team, one is created.
 func (r *EmployeeReconciler) addEmployeeToRoster(ctx context.Context, e *cnrna22v1.Employee) error {
 	var rosterCM v1.ConfigMap
 	err := r.getRoster(ctx, e, &rosterCM)
@@ -147,6 +166,9 @@ func (r *EmployeeReconciler) addEmployeeToRoster(ctx context.Context, e *cnrna22
 	}
 }
 
+// removeEmployeeFromRoster manages the lifecycle of the roster object to which
+// an employee belongs. This function will remove the employee from the roster.
+// If the roster is then empty, it is deleted.
 func (r *EmployeeReconciler) removeEmployeeFromRoster(ctx context.Context, e *cnrna22v1.Employee) error {
 	var rosterCM v1.ConfigMap
 	err := r.getRoster(ctx, e, &rosterCM)
