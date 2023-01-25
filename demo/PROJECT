@@ -1,0 +1,16 @@
+domain: my.domain
+layout:
+- go.kubebuilder.io/v3
+projectName: demo
+repo: github.com/adowair/cnr-na22
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: my.domain
+  group: cnr-na22
+  kind: Employee
+  path: github.com/adowair/cnr-na22/api/v1
+  version: v1
+version: "3"
