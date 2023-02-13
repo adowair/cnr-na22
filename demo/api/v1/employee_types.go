@@ -33,7 +33,9 @@ type EmployeeSpec struct {
 }
 
 // EmployeeStatus defines the observed state of Employee
-type EmployeeStatus struct{}
+type EmployeeStatus struct {
+	Roster string `json:"roster,omitempty"`
+}
 
 //+kubebuilder:object:root=true
 //+kubebuilder:printcolumn:name="Employee Name",type=string,JSONPath=`.spec.name`

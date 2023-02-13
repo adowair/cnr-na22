@@ -144,6 +144,12 @@ func (r *EmployeeReconciler) addEmployeeToRoster(ctx context.Context, e *cnrna22
 	var rosterCM v1.ConfigMap
 	err := r.getRoster(ctx, e, &rosterCM)
 
+	rosterName := rosterName(e)
+	e.Status.Roster = rosterName
+	if err := r.Update(ctx, e, &client.UpdateOptions{}); err != nil {
+		return err
+	}
+
 	switch {
 	// Roster exists, just update it.
 	case err == nil:
@@ -153,7 +159,7 @@ func (r *EmployeeReconciler) addEmployeeToRoster(ctx context.Context, e *cnrna22
 	case apierrors.IsNotFound(err):
 		rosterCM.ObjectMeta = metav1.ObjectMeta{
 			Namespace: v1.NamespaceDefault,
-			Name:      rosterName(e),
+			Name:      rosterName,
 		}
 		rosterCM.Data = make(map[string]string)
 		rosterCM.Data[rosterKey(e)] = e.Spec.Name
