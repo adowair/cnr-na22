@@ -19,7 +19,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -114,11 +113,10 @@ func (r *EmployeeReconciler) removeFinalizer(ctx context.Context, e *cnrna22v1.E
 }
 
 // rosterName returns, for a given employee, the name of the roster they should
-// should belong to. This is derived from the employee's team name.
+// should belong to. This is derived from the employee's namespace
 func rosterName(e *cnrna22v1.Employee) string {
 	// Make team name a valid Kubernetes name
-	rosterCMName := fmt.Sprintf("%s-team-roster", strings.ReplaceAll(e.Spec.TeamName, " ", "-"))
-	return strings.ToLower(rosterCMName)
+	return fmt.Sprintf("%s-team-roster", e.Namespace)
 }
 
 // rosterKey returns, for an employee, the key with which they should be added
@@ -133,7 +131,7 @@ func rosterKey(e *cnrna22v1.Employee) string {
 // copies it into cm if it exists.
 func (r *EmployeeReconciler) getRoster(ctx context.Context, e *cnrna22v1.Employee, cm *v1.ConfigMap) error {
 	rosterCMKey := client.ObjectKey{
-		Namespace: e.Namespace,
+		Namespace: v1.NamespaceDefault,
 		Name:      rosterName(e),
 	}
 	return r.Get(ctx, rosterCMKey, cm)
@@ -146,6 +144,12 @@ func (r *EmployeeReconciler) addEmployeeToRoster(ctx context.Context, e *cnrna22
 	var rosterCM v1.ConfigMap
 	err := r.getRoster(ctx, e, &rosterCM)
 
+	rosterName := rosterName(e)
+	e.Status.Roster = rosterName
+	if err := r.Update(ctx, e, &client.UpdateOptions{}); err != nil {
+		return err
+	}
+
 	switch {
 	// Roster exists, just update it.
 	case err == nil:
@@ -154,8 +158,8 @@ func (r *EmployeeReconciler) addEmployeeToRoster(ctx context.Context, e *cnrna22
 	// Roster does not exist. Add metadata and create it.
 	case apierrors.IsNotFound(err):
 		rosterCM.ObjectMeta = metav1.ObjectMeta{
-			Namespace: e.Namespace,
-			Name:      rosterName(e),
+			Namespace: v1.NamespaceDefault,
+			Name:      rosterName,
 		}
 		rosterCM.Data = make(map[string]string)
 		rosterCM.Data[rosterKey(e)] = e.Spec.Name
