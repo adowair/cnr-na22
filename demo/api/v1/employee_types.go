@@ -28,9 +28,6 @@ type EmployeeSpec struct {
 	// +kubebuilder:validation:Required
 	// The employee's name. Required.
 	Name string `json:"name,omitempty"`
-	// +kubebuilder:validation:Required
-	// The team the employee belongs to. Required.
-	TeamName string `json:"teamName,omitempty"`
 	// The employee's role.
 	Role string `json:"role,omitempty"`
 }
@@ -40,7 +37,6 @@ type EmployeeStatus struct{}
 
 //+kubebuilder:object:root=true
 //+kubebuilder:printcolumn:name="Employee Name",type=string,JSONPath=`.spec.name`
-//+kubebuilder:printcolumn:name="Team",type=string,JSONPath=`.spec.teamName`
 
 // Employee is the Schema for the employees API
 type Employee struct {

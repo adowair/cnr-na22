@@ -7,9 +7,9 @@ metadata:
     app.kuberentes.io/managed-by: kustomize
     app.kubernetes.io/created-by: demo
   generateName: employee-
+  namespace: red
 spec:
   name: "Ali"
-  teamName: "Red"
   role: "Engineer"
 ---
 apiVersion: cnr-na22.my.domain/v1
@@ -21,9 +21,9 @@ metadata:
     app.kuberentes.io/managed-by: kustomize
     app.kubernetes.io/created-by: demo
   generateName: employee-
+  namespace: blue
 spec:
   name: "Omar"
-  teamName: "Red"
   role: "Systems Engineer"
 ---
 apiVersion: cnr-na22.my.domain/v1
@@ -35,7 +35,7 @@ metadata:
     app.kuberentes.io/managed-by: kustomize
     app.kubernetes.io/created-by: demo
   generateName: employee-
+  namespace: blue
 spec:
   name: "Aziz"
-  teamName: "Blue"
   role: "Marketing Manager"
